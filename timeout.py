@@ -1,18 +1,22 @@
 import os
+import json
 import timeit
 import time
 import math
 import random
 from abc import ABC
-from logging import INFO
-from typing import Tuple, List, Optional
+from logging import INFO, DEBUG
+from typing import Tuple, List, Optional, Dict
+
+import flwr.server
 import matplotlib.pyplot as plt
 from flwr.common.logger import log
 
-from flwr.common import Metrics
+from flwr.common import Metrics, Scalar
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.criterion import Criterion
 from flwr.server.history import History
+from flwr.server.server import EvaluateResultsAndFailures, evaluate_clients
 
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -21,9 +25,14 @@ import flwr as fl
 import tensorflow as tf
 
 NUM_CLIENTS = 100
+NUM_ROUNDS = 3
 TIMEOUT_WINDOW = 5
+CLIENT_TIMEOUT = 10
 TIMEOUT_CHANCE = 0.6
-SHOULD_TIMEOUT = True
+SHOULD_TIMEOUT = False
+DYNAMIC_TIMEOUT = False
+
+CLIENT_VERBOSE = 3
 
 
 class FlwrClient(fl.client.NumPyClient):
@@ -40,15 +49,15 @@ class FlwrClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         if self.should_timeout:
-            time.sleep(TIMEOUT_WINDOW + 2)
+            time.sleep(CLIENT_TIMEOUT)
 
         self.model.set_weights(parameters)
-        self.model.fit(self.x_train, self.y_train, epochs=2, verbose=2)
+        self.model.fit(self.x_train, self.y_train, epochs=2, verbose=CLIENT_VERBOSE)
         return self.model.get_weights(), len(self.x_train), {}
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
-        loss, acc = self.model.evaluate(self.x_val, self.y_val, verbose=2)
+        loss, acc = self.model.evaluate(self.x_val, self.y_val, verbose=CLIENT_VERBOSE)
         return loss, len(self.x_val), {"accuracy": acc}
 
 
@@ -177,6 +186,7 @@ class CustomServer(fl.server.Server):
         for current_round in range(1, num_rounds + 1):
             # Train model and replace previous global model
             res_fit = self.fit_round(server_round=current_round, timeout=timeout)
+            print("round_timeout: ", timeout)
             if res_fit:
                 parameters_prime, _, _ = res_fit  # fit_metrics_aggregated
                 if parameters_prime:
@@ -193,7 +203,7 @@ class CustomServer(fl.server.Server):
                     loss_cen,
                     metrics_cen,
                     timeit.default_timer() - start_time,
-                    )
+                )
                 history.add_loss_centralized(server_round=current_round, loss=loss_cen)
                 history.add_metrics_centralized(
                     server_round=current_round, metrics=metrics_cen
@@ -202,7 +212,17 @@ class CustomServer(fl.server.Server):
             # Evaluate model on a sample of available clients
             res_fed = self.evaluate_round(server_round=current_round, timeout=timeout)
             if res_fed:
-                loss_fed, evaluate_metrics_fed, _ = res_fed
+                loss_fed, evaluate_metrics_fed, results_failures = res_fed
+                results = len(results_failures[0])
+                failures = len(results_failures[1])
+                print(f"success: ${results}, failures: ${failures}")
+
+                if DYNAMIC_TIMEOUT:
+                    if results == 0:
+                        timeout *= 2
+                    elif failures // results > 2:
+                        timeout *= 1.5
+
                 if loss_fed:
                     history.add_loss_distributed(
                         server_round=current_round, loss=loss_fed
@@ -217,6 +237,71 @@ class CustomServer(fl.server.Server):
         log(INFO, "FL finished in %s", elapsed)
         return history
 
+    def evaluate_round(
+            self,
+            server_round: int,
+            timeout: Optional[float],
+    ) -> Optional[
+        Tuple[Optional[float], Dict[str, Scalar], EvaluateResultsAndFailures]
+    ]:
+        """Validate current global model on a number of clients."""
+
+        # Get clients and their respective instructions from strategy
+        client_instructions = self.strategy.configure_evaluate(
+            server_round=server_round,
+            parameters=self.parameters,
+            client_manager=self._client_manager,
+        )
+        if not client_instructions:
+            log(INFO, "evaluate_round %s: no clients selected, cancel", server_round)
+            return None
+        log(
+            DEBUG,
+            "evaluate_round %s: strategy sampled %s clients (out of %s)",
+            server_round,
+            len(client_instructions),
+            self._client_manager.num_available(),
+        )
+
+        # Collect `evaluate` results from all clients participating in this round
+        results, failures = evaluate_clients(
+            client_instructions,
+            max_workers=self.max_workers,
+            timeout=timeout,
+        )
+        log(
+            DEBUG,
+            "evaluate_round %s received %s results and %s failures",
+            server_round,
+            len(results),
+            len(failures),
+        )
+
+        # Aggregate the evaluation results
+        aggregated_result: Tuple[
+            Optional[float],
+            Dict[str, Scalar],
+        ] = self.strategy.aggregate_evaluate(server_round, results, failures)
+
+        loss_aggregated, metrics_aggregated = aggregated_result
+        return loss_aggregated, metrics_aggregated, (results, failures)
+
+
+def save_result(strategy: str, accuracy: dict[str, list[tuple[int, bool | bytes | float | int | str]]], losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]]) -> None:
+    results = {"strategy": strategy, "num_rounds": NUM_ROUNDS, "num_clients": NUM_CLIENTS,
+               "should_timeout": SHOULD_TIMEOUT, "dynamic_timeout": DYNAMIC_TIMEOUT, "timeout_chance": TIMEOUT_CHANCE,
+               "timeout_window": TIMEOUT_WINDOW, "accuracy": accuracy["accuracy"], "losses": losses}
+
+    f = open("results.txt", "a")
+
+    json_object = json.dumps(results, indent=4)
+    f.write(json_object)
+    f.write(",\n")
+    f.close()
+
+def display_results() -> None:
+    return
+
 def main() -> None:
     # Start Flower simulation
     result = fl.simulation.start_simulation(
@@ -224,18 +309,20 @@ def main() -> None:
         client_fn=client_fn,
         num_clients=NUM_CLIENTS,
         client_resources={"num_cpus": 4},
-        config=fl.server.ServerConfig(num_rounds=5, round_timeout=TIMEOUT_WINDOW),
+        config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS, round_timeout=TIMEOUT_WINDOW),
         client_manager=CustomClientManager(),
         server=CustomServer(),
     )
 
+    save_result("FedAvgM", result.metrics_distributed, result.losses_distributed)
+
+    """ 
     plt.plot(*zip(*result.metrics_distributed['accuracy']))
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
     plt.legend(['Train'], loc='upper left')
     plt.show()
-    """ 
 
     plt.plot(*zip(*result.losses_distributed))
     plt.title('model losses')
