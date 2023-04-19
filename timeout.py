@@ -7,6 +7,7 @@ import random
 from abc import ABC
 from logging import INFO, DEBUG
 from typing import Tuple, List, Optional, Dict
+import numpy as np
 
 import flwr.server
 import matplotlib.pyplot as plt
@@ -147,9 +148,13 @@ class ClientManager(fl.server.client_manager.ClientManager, ABC):
 
 
 class CustomServer(fl.server.Server):
+
     def __init__(self):
         super().__init__(client_manager=CustomClientManager(),
-                         strategy=fl.server.strategy.FedAvg(
+                         strategy=fl.server.strategy.FedYogi(
+                             #proximal_mu=0.1,
+                             initial_parameters=fl.common.ndarrays_to_parameters(client_fn("0").get_parameters(config={})),
+                             #initial_parameters=tf.reshape(tf.convert_to_tensor(()), (0, 0)),
                              fraction_fit=0.1,
                              fraction_evaluate=0.1,
                              min_fit_clients=3,
@@ -287,20 +292,23 @@ class CustomServer(fl.server.Server):
         return loss_aggregated, metrics_aggregated, (results, failures)
 
 
-def save_result(strategy: str, accuracy: dict[str, list[tuple[int, bool | bytes | float | int | str]]], losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]]) -> None:
+def save_result(file: str, strategy: str, accuracy: dict[str, list[tuple[int, bool | bytes | float | int | str]]],
+                losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]]) -> None:
     results = {"strategy": strategy, "num_rounds": NUM_ROUNDS, "num_clients": NUM_CLIENTS,
                "should_timeout": SHOULD_TIMEOUT, "dynamic_timeout": DYNAMIC_TIMEOUT, "timeout_chance": TIMEOUT_CHANCE,
                "timeout_window": TIMEOUT_WINDOW, "accuracy": accuracy["accuracy"], "losses": losses}
 
-    f = open("results.txt", "a")
+    f = open(file, "a")
 
     json_object = json.dumps(results, indent=4)
     f.write(json_object)
     f.write(",\n")
     f.close()
 
+
 def display_results() -> None:
     return
+
 
 def main() -> None:
     # Start Flower simulation
@@ -314,23 +322,8 @@ def main() -> None:
         server=CustomServer(),
     )
 
-    save_result("FedAvgM", result.metrics_distributed, result.losses_distributed)
+    save_result("no_timeout.json", "FedAvgM", result.metrics_distributed, result.losses_distributed)
 
-    """ 
-    plt.plot(*zip(*result.metrics_distributed['accuracy']))
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['Train'], loc='upper left')
-    plt.show()
-
-    plt.plot(*zip(*result.losses_distributed))
-    plt.title('model losses')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['Loss'], loc='upper left')
-    plt.show()
-"""
 
 
 if __name__ == "__main__":
