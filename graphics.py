@@ -42,7 +42,7 @@ def plot_results(file: str) -> None:
 
 
 def main() -> None:
-    plot_results("results.json")
+    plot_results("mnist_no_timeout.json")
 
 
 if __name__ == '__main__':

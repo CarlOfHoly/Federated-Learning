@@ -1,0 +1,38 @@
+{
+    "strategy": "FedAvg",
+    "num_rounds": 3,
+    "num_clients": 100,
+    "should_timeout": false,
+    "dynamic_timeout": false,
+    "timeout_chance": 0.6,
+    "timeout_window": 100,
+    "accuracy": [
+        [
+            1,
+            0.6666666626930237
+        ],
+        [
+            2,
+            0.8100000023841858
+        ],
+        [
+            3,
+            0.8433333396911621
+        ]
+    ],
+    "losses": [
+        [
+            1,
+            1.6144698500633239
+        ],
+        [
+            2,
+            0.8819659054279327
+        ],
+        [
+            3,
+            0.5299092084169388
+        ]
+    ],
+    "dataset": "mnist"
+},

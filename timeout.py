@@ -5,6 +5,7 @@ import time
 import math
 import random
 from abc import ABC
+from enum import Enum
 from logging import INFO, DEBUG
 from typing import Tuple, List, Optional, Dict
 import numpy as np
@@ -25,13 +26,95 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import flwr as fl
 import tensorflow as tf
 
+class Strategy(Enum):
+    FEDAVG = "FedAvg"
+    FEDAVGM = "FedAvgM"
+    QFEDAVG = "QFedAvg"
+    FEDOPT = "FedOpt"
+    FEDPROX = "FedProx"
+    FEDADAGRAD = "FedAdagrad"
+    FEDADAM = "FedAdam"
+    FEDYOGI = "FedYogi"
+
+
+def strategy_selector(strategy: Strategy):
+    match strategy:
+        case Strategy.FEDAVG:
+            return fl.server.strategy.FedAvg(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.FEDAVGM:
+            return fl.server.strategy.FedAvgM(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.QFEDAVG:
+            return fl.server.strategy.QFedAvg(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.FEDOPT:
+            return fl.server.strategy.FedOpt(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.FEDADAGRAD:
+            return fl.server.strategy.FedAdagrad(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.FEDADAM:
+            return fl.server.strategy.FedAdam(
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+        case Strategy.FEDYOGI:
+            return fl.server.strategy.FedYogi(
+                # proximal_mu=0.1,
+                initial_parameters=fl.common.ndarrays_to_parameters(client_fn("0").get_parameters(config={})),
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
+
+
 NUM_CLIENTS = 100
 NUM_ROUNDS = 3
-TIMEOUT_WINDOW = 5
+TIMEOUT_WINDOW = 100
 CLIENT_TIMEOUT = 10
 TIMEOUT_CHANCE = 0.6
 SHOULD_TIMEOUT = False
 DYNAMIC_TIMEOUT = False
+STRATEGY = Strategy.FEDAVG
+DATASET = "mnist"
 
 CLIENT_VERBOSE = 3
 
@@ -147,22 +230,14 @@ class ClientManager(fl.server.client_manager.ClientManager, ABC):
         super().__init__()
 
 
+
+
 class CustomServer(fl.server.Server):
 
     def __init__(self):
         super().__init__(client_manager=CustomClientManager(),
-                         strategy=fl.server.strategy.FedYogi(
-                             #proximal_mu=0.1,
-                             initial_parameters=fl.common.ndarrays_to_parameters(client_fn("0").get_parameters(config={})),
-                             #initial_parameters=tf.reshape(tf.convert_to_tensor(()), (0, 0)),
-                             fraction_fit=0.1,
-                             fraction_evaluate=0.1,
-                             min_fit_clients=3,
-                             min_evaluate_clients=2,
-                             min_available_clients=10,
-                             evaluate_metrics_aggregation_fn=weighted_average,
-                             on_fit_config_fn=fit_config,
-                         )),
+                         strategy=strategy_selector(Strategy.FEDYOGI)
+                         ),
 
     # pylint: disable=too-many-locals
     def fit(self, num_rounds: int, timeout: Optional[float]) -> History:
@@ -293,10 +368,10 @@ class CustomServer(fl.server.Server):
 
 
 def save_result(file: str, strategy: str, accuracy: dict[str, list[tuple[int, bool | bytes | float | int | str]]],
-                losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]]) -> None:
+                losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]], dataset: str) -> None:
     results = {"strategy": strategy, "num_rounds": NUM_ROUNDS, "num_clients": NUM_CLIENTS,
                "should_timeout": SHOULD_TIMEOUT, "dynamic_timeout": DYNAMIC_TIMEOUT, "timeout_chance": TIMEOUT_CHANCE,
-               "timeout_window": TIMEOUT_WINDOW, "accuracy": accuracy["accuracy"], "losses": losses}
+               "timeout_window": TIMEOUT_WINDOW, "accuracy": accuracy["accuracy"], "losses": losses, "dataset": dataset}
 
     f = open(file, "a")
 
@@ -311,7 +386,6 @@ def display_results() -> None:
 
 
 def main() -> None:
-    # Start Flower simulation
     result = fl.simulation.start_simulation(
         ray_init_args={"include_dashboard": False},
         client_fn=client_fn,
@@ -322,8 +396,7 @@ def main() -> None:
         server=CustomServer(),
     )
 
-    save_result("no_timeout.json", "FedAvgM", result.metrics_distributed, result.losses_distributed)
-
+    save_result(f"results/{DATASET}_no_timeout.json", STRATEGY.value, result.metrics_distributed, result.losses_distributed, DATASET)
 
 
 if __name__ == "__main__":
