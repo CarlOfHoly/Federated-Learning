@@ -1,32 +1,39 @@
+import math
 import os
-
+import random
+import time
 import flwr as fl
 import tensorflow as tf
 
-# Make TensorFlow log less verbose
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-# Load model and data (MobileNetV2, CIFAR-10)
-model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
-model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+NUM_ROUNDS = 10
+TIMEOUT_WINDOW = 100
+TIMEOUT_CHANCE = 0.6
+SHOULD_TIMEOUT = False
+CLIENT_VERBOSE = 3
+CLIENT_TIMEOUT = 10
 
+class FlwrClient(fl.client.NumPyClient):
+    def __init__(self, model, x_train, y_train) -> None:
+        super().__init__()
+        self.model = model
+        split_idx = math.floor(len(x_train) * 0.9)  # Use 10% of x_train for validation
+        self.x_train, self.y_train = x_train[:split_idx], y_train[:split_idx]
+        self.x_val, self.y_val = x_train[split_idx:], y_train[split_idx:]
+        self.should_timeout = (random.random() < TIMEOUT_CHANCE) and SHOULD_TIMEOUT
 
-# Define Flower client
-class CifarClient(fl.client.NumPyClient):
     def get_parameters(self, config):
-        return model.get_weights()
+        return self.model.get_weights()
 
     def fit(self, parameters, config):
-        model.set_weights(parameters)
-        model.fit(x_train, y_train, epochs=1, batch_size=32)
-        return model.get_weights(), len(x_train), {}
+        if self.should_timeout:
+            time.sleep(CLIENT_TIMEOUT)
+
+        self.model.set_weights(parameters)
+        self.model.fit(self.x_train, self.y_train, epochs=2, verbose=CLIENT_VERBOSE)
+        return self.model.get_weights(), len(self.x_train), {}
 
     def evaluate(self, parameters, config):
-        model.set_weights(parameters)
-        loss, accuracy = model.evaluate(x_test, y_test)
-        return loss, len(x_test), {"accuracy": accuracy}
-
-
-# Start Flower client
-fl.client.start_numpy_client(server_address="127.0.0.1:8080", client=CifarClient())
+        self.model.set_weights(parameters)
+        loss, acc = self.model.evaluate(self.x_val, self.y_val, verbose=CLIENT_VERBOSE)
+        return loss, len(self.x_val), {"accuracy": acc}

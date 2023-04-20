@@ -2,6 +2,9 @@ import json
 
 from matplotlib import pyplot as plt
 
+from main import NUM_ROUNDS, NUM_CLIENTS, SHOULD_TIMEOUT, DYNAMIC_TIMEOUT, TIMEOUT_WINDOW
+
+
 
 """ 
 plt.plot(*zip(*result.metrics_distributed['accuracy']))
