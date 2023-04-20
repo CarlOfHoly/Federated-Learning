@@ -43,9 +43,24 @@ def plot_results(file: str) -> None:
 
     f.close()
 
+def plot_losses(file: str) -> None:
+    f = open(file, "r")
+    data = json.loads(f.read())
+
+    for i in range(len(data)):
+        result = data[i]
+        plot_graph(result["strategy"], result["losses"])
+
+    plt.title('model losses')
+    plt.ylabel('losses')
+    plt.xlabel('communication rounds')
+    plt.legend()
+    plt.show()
+
+    f.close()
 
 def main() -> None:
-    plot_results("mnist_no_timeout.json")
+    plot_losses("results/mnist_no_timeout.json")
 
 
 if __name__ == '__main__':
