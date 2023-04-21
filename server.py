@@ -13,13 +13,38 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.criterion import Criterion
 from flwr.server.history import History
 from flwr.server.server import EvaluateResultsAndFailures, evaluate_clients
-from client import FlwrClient
+from client import MnistClient, CifarClient
 
 
-DYNAMIC_TIMEOUT = False
-NUM_CLIENTS = 100
+def client_fn_cifar(cid: str) -> fl.client.Client:
+    """
+    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
+    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
 
-def client_fn(cid: str) -> fl.client.Client:
+    (x_train, y_train), _ = tf.keras.datasets.cifar10.load_data()
+    partition_size = math.floor(len(x_train) / NUM_CLIENTS)
+    idx_from, idx_to = int(cid) * partition_size, (int(cid) + 1) * partition_size
+    x_train_cid = x_train[idx_from:idx_to] / 255.0
+    y_train_cid = y_train[idx_from:idx_to]
+
+    # Create and return client
+    return CifarClient(model, x_train_cid, y_train_cid)
+    """
+
+    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
+    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
+
+    # Load data partition (divide MNIST into NUM_CLIENTS distinct partitions)
+    (x_train, y_train), _ = tf.keras.datasets.cifar10.load_data()
+    partition_size = math.floor(len(x_train) / NUM_CLIENTS)
+    idx_from, idx_to = int(cid) * partition_size, (int(cid) + 1) * partition_size
+    x_train_cid = x_train[idx_from:idx_to] / 255.0
+    y_train_cid = y_train[idx_from:idx_to]
+
+    # Create and return client
+    return CifarClient(model, x_train_cid, y_train_cid)
+
+def client_fn_mnist(cid: str) -> fl.client.Client:
     # Load model
     model = tf.keras.models.Sequential(
         [
@@ -39,7 +64,7 @@ def client_fn(cid: str) -> fl.client.Client:
     y_train_cid = y_train[idx_from:idx_to]
 
     # Create and return client
-    return FlwrClient(model, x_train_cid, y_train_cid)
+    return MnistClient(model, x_train_cid, y_train_cid)
 
 
 class Strategy(Enum):
@@ -132,7 +157,7 @@ def strategy_selector(strategy: Strategy):
         case Strategy.FEDYOGI:
             return fl.server.strategy.FedYogi(
                 # proximal_mu=0.1,
-                initial_parameters=fl.common.ndarrays_to_parameters(client_fn("0").get_parameters(config={})),
+                initial_parameters=fl.common.ndarrays_to_parameters(client_fn_mnist("0").get_parameters(config={})),
                 fraction_fit=0.1,
                 fraction_evaluate=0.1,
                 min_fit_clients=3,
@@ -312,3 +337,9 @@ class CustomServer(fl.server.Server):
 
         loss_aggregated, metrics_aggregated = aggregated_result
         return loss_aggregated, metrics_aggregated, (results, failures)
+
+
+# CONSTANTS
+DYNAMIC_TIMEOUT = False
+NUM_CLIENTS = 100
+STRATEGY = Strategy.FEDAVG
