@@ -28,12 +28,15 @@ def save_result(file: str, strategy: str, accuracy: dict[str, list[tuple[int, bo
 
 
 def main() -> None:
+    print("-----------------------")
+    print(STRATEGY.value)
+    print("-----------------------")
     result = fl.simulation.start_simulation(
         ray_init_args={"include_dashboard": False},
-        client_fn=client_fn_cifar,
+        client_fn=client_fn_mnist,
         num_clients=NUM_CLIENTS,
         client_resources={"num_cpus": 4},
-        config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS, round_timeout=TIMEOUT_WINDOW),
+        config=fl.server.ServerConfig(num_rounds=NUM_ROUNDS),
         client_manager=CustomClientManager(),
         server=CustomServer(),
     )

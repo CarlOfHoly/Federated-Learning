@@ -342,4 +342,4 @@ class CustomServer(fl.server.Server):
 # CONSTANTS
 DYNAMIC_TIMEOUT = False
 NUM_CLIENTS = 100
-STRATEGY = Strategy.FEDAVG
+STRATEGY = Strategy.FEDOPT

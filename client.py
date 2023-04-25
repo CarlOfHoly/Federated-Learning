@@ -3,7 +3,7 @@ import random
 import time
 import flwr as fl
 
-NUM_ROUNDS = 3
+NUM_ROUNDS = 100
 TIMEOUT_WINDOW = 100
 TIMEOUT_CHANCE = 0.6
 SHOULD_TIMEOUT = False

@@ -41,7 +41,7 @@ def plot_losses(file: str) -> None:
 
 
 def main() -> None:
-    plot_losses("results/mnist_no_timeout.json")
+    plot_results("results/mnist_no_timeout.json")
 
 
 if __name__ == '__main__':
