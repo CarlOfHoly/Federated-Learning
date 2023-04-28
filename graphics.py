@@ -10,7 +10,7 @@ def plot_results(file: str) -> None:
     f = open(file, "r")
     data = json.loads(f.read())
 
-    for i in range(len(data)):
+    for i in range(len(data)//2, len(data)):
         result = data[i]
         plot_graph(result["strategy"], result["accuracy"])
 
@@ -27,7 +27,7 @@ def plot_losses(file: str) -> None:
     f = open(file, "r")
     data = json.loads(f.read())
 
-    for i in range(len(data)):
+    for i in range(len(data)//2, len(data)):
         result = data[i]
         plot_graph(result["strategy"], result["losses"])
 
@@ -41,7 +41,8 @@ def plot_losses(file: str) -> None:
 
 
 def main() -> None:
-    plot_results("results/mnist_no_timeout.json")
+    #plot_results("results/mnist_no_timeout.json")
+    plot_results("results/mnist_clients_normalized_lower.json")
 
 
 if __name__ == '__main__':

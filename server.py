@@ -13,36 +13,8 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.criterion import Criterion
 from flwr.server.history import History
 from flwr.server.server import EvaluateResultsAndFailures, evaluate_clients
-from client import MnistClient, CifarClient
+from client import MnistClient
 
-
-def client_fn_cifar(cid: str) -> fl.client.Client:
-    """
-    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
-    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
-
-    (x_train, y_train), _ = tf.keras.datasets.cifar10.load_data()
-    partition_size = math.floor(len(x_train) / NUM_CLIENTS)
-    idx_from, idx_to = int(cid) * partition_size, (int(cid) + 1) * partition_size
-    x_train_cid = x_train[idx_from:idx_to] / 255.0
-    y_train_cid = y_train[idx_from:idx_to]
-
-    # Create and return client
-    return CifarClient(model, x_train_cid, y_train_cid)
-    """
-
-    model = tf.keras.applications.MobileNetV2((32, 32, 3), classes=10, weights=None)
-    model.compile("adam", "sparse_categorical_crossentropy", metrics=["accuracy"])
-
-    # Load data partition (divide MNIST into NUM_CLIENTS distinct partitions)
-    (x_train, y_train), _ = tf.keras.datasets.cifar10.load_data()
-    partition_size = math.floor(len(x_train) / NUM_CLIENTS)
-    idx_from, idx_to = int(cid) * partition_size, (int(cid) + 1) * partition_size
-    x_train_cid = x_train[idx_from:idx_to] / 255.0
-    y_train_cid = y_train[idx_from:idx_to]
-
-    # Create and return client
-    return CifarClient(model, x_train_cid, y_train_cid)
 
 def client_fn_mnist(cid: str) -> fl.client.Client:
     # Load model
@@ -342,4 +314,4 @@ class CustomServer(fl.server.Server):
 # CONSTANTS
 DYNAMIC_TIMEOUT = False
 NUM_CLIENTS = 100
-STRATEGY = Strategy.FEDOPT
+STRATEGY = Strategy.FEDYOGI
