@@ -15,7 +15,8 @@ DATASET = "mnist"
 def save_result(file: str, strategy: str, accuracy: dict[str, list[tuple[int, bool | bytes | float | int | str]]],
                 losses: dict[str, list[tuple[int, bool | bytes | float | int | str]]], dataset: str) -> None:
     results = {"strategy": strategy, "num_rounds": NUM_ROUNDS, "num_clients": NUM_CLIENTS,
-               "should_timeout": NORMALIZE_DISTRIBUTION, "dynamic_timeout": DYNAMIC_TIMEOUT, "sample_mean": MU, "standard_deviation": SIGMA,
+               "should_timeout": NORMALIZE_DISTRIBUTION, "dynamic_timeout": DYNAMIC_TIMEOUT, "sample_mean": MU,
+               "standard_deviation": SIGMA,
                "timeout_window": TIMEOUT_WINDOW, "accuracy": accuracy["accuracy"], "losses": losses, "dataset": dataset}
 
     f = open(file, "a")
@@ -40,7 +41,7 @@ def main() -> None:
         server=CustomServer(),
     )
 
-    save_result(f"results/{DATASET}_clients_normalized_upper.json", STRATEGY.value, result.metrics_distributed,
+    save_result(f"results/{DATASET}_dynamic_timeout.json", STRATEGY.value, result.metrics_distributed,
                 result.losses_distributed, DATASET)
 
 

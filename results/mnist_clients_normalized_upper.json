@@ -1,4 +1,4 @@
-{
+[{
     "strategy": "FedAvg",
     "num_rounds": 60,
     "num_clients": 100,
@@ -3380,4 +3380,4 @@
         ]
     ],
     "dataset": "mnist"
-},
+}]

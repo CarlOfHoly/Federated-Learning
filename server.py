@@ -176,6 +176,20 @@ class CustomClientManager(fl.server.client_manager.SimpleClientManager):
         return [self.clients[cid] for cid in sampled_cids]
 
 
+def dynamic_timeout_window(successes, failures, round_timeout):
+    success_rate = successes / (successes + failures)
+
+    if success_rate < 0.33:
+        timeout = round_timeout * 2
+    elif 0.33 <= success_rate < 0.66:
+        timeout = round_timeout * 1.5
+    elif 0.66 <= success_rate < 0.9:
+        timeout = round_timeout * 1.33
+    else:
+        timeout = round_timeout
+    return timeout
+
+
 class CustomServer(fl.server.Server):
 
     def __init__(self):
@@ -239,13 +253,10 @@ class CustomServer(fl.server.Server):
                 loss_fed, evaluate_metrics_fed, results_failures = res_fed
                 results = len(results_failures[0])
                 failures = len(results_failures[1])
-                print(f"success: ${results}, failures: ${failures}")
+                print(f"success: ${results}, failures: ${failures}, accuracy: ${evaluate_metrics_fed}")
 
                 if DYNAMIC_TIMEOUT:
-                    if results == 0:
-                        timeout *= 2
-                    elif failures // results > 2:
-                        timeout *= 1.5
+                    timeout = dynamic_timeout_window(results, failures, timeout)
 
                 if loss_fed:
                     history.add_loss_distributed(
@@ -312,6 +323,6 @@ class CustomServer(fl.server.Server):
 
 
 # CONSTANTS
-DYNAMIC_TIMEOUT = False
+DYNAMIC_TIMEOUT = True
 NUM_CLIENTS = 100
 STRATEGY = Strategy.FEDYOGI
