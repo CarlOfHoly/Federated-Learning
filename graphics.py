@@ -44,10 +44,10 @@ def plot_losses(file: str, title: str) -> None:
 def main() -> None:
     #plot_results("results/mnist_no_timeout.json")
     #plot_results("results/mnist_clients_normalized_lower.json", "Accuracy - Normalized Lower")
-    #plot_results("results/mnist_clients_normalized_mean.json", "Accuracy - Normalized Mean")
-    #plot_results("results/mnist_clients_normalized_upper.json", "Accuracy - Normalized Upper")
+    plot_results("results/mnist_clients_normalized_mean.json", "Accuracy - Normalized Mean")
+    plot_results("results/mnist_clients_normalized_upper.json", "Accuracy - Normalized Upper")
     #plot_results("results/mnist_dynamic_timeout.json", "Accuracy - Dynamic Timeout")
-    plot_losses("results/mnist_dynamic_timeout.json", "Losses - Dynamic Timeout")
+    #plot_losses("results/mnist_dynamic_timeout.json", "Losses - Dynamic Timeout")
 
 
 if __name__ == '__main__':

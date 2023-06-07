@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import json
 import os
 
+import flwr as fl
+
 from client import NUM_ROUNDS, NORMALIZE_DISTRIBUTION, TIMEOUT_WINDOW, MU, SIGMA
-from server import CustomClientManager, CustomServer, client_fn_mnist, Strategy, NUM_CLIENTS, DYNAMIC_TIMEOUT, STRATEGY
+from server import CustomClientManager, CustomServer, client_fn_mnist, NUM_CLIENTS, DYNAMIC_TIMEOUT, STRATEGY
 
 # Make TensorFlow logs less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-import flwr as fl
 
 DATASET = "mnist"
 
@@ -41,8 +44,9 @@ def main() -> None:
         server=CustomServer(),
     )
 
-    save_result(f"results/{DATASET}_dynamic_timeout.json", STRATEGY.value, result.metrics_distributed,
-                result.losses_distributed, DATASET)
+
+    save_result(f"results/{DATASET}_clients_normalized_lower.json", STRATEGY.value, result.metrics_distributed,
+               result.losses_distributed, DATASET)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def main() -> None:
     mu, sigma = 2, 0.1  # mean and standard deviation
     s = np.random.normal(mu, sigma, 1000)
@@ -14,9 +15,11 @@ def main() -> None:
 
     tot = 0
     for i in s:
-        if 1.836<= i <= 2.164:
+        if 1.836 <= i <= 2.164:
             tot += 1
     print(s)
     print(tot)
+
+
 if __name__ == "__main__":
     main()

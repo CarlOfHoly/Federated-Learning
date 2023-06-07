@@ -81,6 +81,16 @@ def strategy_selector(strategy: Strategy):
                 min_available_clients=10,
                 evaluate_metrics_aggregation_fn=weighted_average,
                 on_fit_config_fn=fit_config)
+        case Strategy.FEDPROX:
+            return fl.server.strategy.FedProx(
+                proximal_mu=0.1,
+                fraction_fit=0.1,
+                fraction_evaluate=0.1,
+                min_fit_clients=3,
+                min_evaluate_clients=2,
+                min_available_clients=10,
+                evaluate_metrics_aggregation_fn=weighted_average,
+                on_fit_config_fn=fit_config)
         case Strategy.FEDAVGM:
             return fl.server.strategy.FedAvgM(
                 fraction_fit=0.1,
@@ -194,7 +204,7 @@ class CustomServer(fl.server.Server):
 
     def __init__(self):
         super().__init__(client_manager=CustomClientManager(),
-                         strategy=strategy_selector(Strategy.FEDYOGI)
+                         strategy=strategy_selector(STRATEGY)
                          ),
 
     # pylint: disable=too-many-locals
@@ -270,6 +280,7 @@ class CustomServer(fl.server.Server):
         end_time = timeit.default_timer()
         elapsed = end_time - start_time
         log(INFO, "FL finished in %s", elapsed)
+
         return history
 
     def evaluate_round(
@@ -323,6 +334,6 @@ class CustomServer(fl.server.Server):
 
 
 # CONSTANTS
-DYNAMIC_TIMEOUT = True
+DYNAMIC_TIMEOUT = False
 NUM_CLIENTS = 100
-STRATEGY = Strategy.FEDYOGI
+STRATEGY = Strategy.FEDPROX
